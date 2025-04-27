@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Arizona Legislative & Voting Map - SRP District 10</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- html2canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <style>
+    #map { height: 100vh; }
+
+    #opacityControl, #exportControl {
+      position: fixed;
+      background: white;
+      padding: 6px 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      z-index: 1001;
+      font-size: 12px;
+    }
+
+    #opacityControl { bottom: 80px; right: 20px; }
+    #exportControl { bottom: 20px; right: 20px; }
+    #opacityInput { width: 60px; text-align: center; }
+
+    button {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<!-- Export Button -->
+<div id="exportControl">
+  <button id="exportBtn" aria-label="Export map as image"><b>Export Map</b></button>
+</div>
+
+<!-- Opacity Control -->
+<div id="opacityControl">
+  <label for="opacityInput"><b>Opacity (%):</b></label><br>
+  <input type="number" id="opacityInput" min="0" max="100"> %
+</div>
+
+<script>
+// Initialize Map
+var map = L.map('map').setView([33.45, -112.07], 10);
+
+// Base Layer
+var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
+  crossOrigin: true
+}).addTo(map);
+
+// SRP District 10 Overlay
+var srpOverlay = L.imageOverlay(
+  'https://raw.githubusercontent.com/two3four/arizona-legislative-voting-map-district10/main/SRP%20District%2010%20map.png',
+  [
+    [33.168601131, -112.461595],
+    [33.707661, -111.617379352]
+  ],
+  {
+    opacity: 0.5,
+    crossOrigin: 'anonymous'
+  }
+).addTo(map);
+
+// Layers: Senate Districts
+var senateDistricts = L.geoJSON(null, {
+  style: { color: "red", weight: 2, fillOpacity: 0 },
+  onEachFeature: function (feature, layer) {
+    if (feature.properties) {
+      var popupContent = `
+        <b>State FIPS Code:</b> ${feature.properties.STATEFP || ''}<br/>
+        <b>District Number:</b> ${feature.properties.SLDUST || ''}<br/>
+        <b>District Name:</b> ${feature.properties.NAMELSAD || ''}
+      `;
+      layer.bindPopup(popupContent);
+    }
+  }
+});
+
+// Layers: Voting Precincts
+var votingPrecincts = L.geoJSON(null, {
+ style: { color: "#66b3ff", weight: 2, fillOpacity: 0.0 },
+  onEachFeature: function (feature, layer) {
+    if (feature.properties) {
+      var popupContent = `
+        <b>Precinct Number:</b> ${feature.properties.pctnum || ''}<br/>
+        <b>Precinct Name:</b> ${feature.properties.precinctna || ''}<br/>
+        <b>County Code:</b> ${feature.properties.cde_county || ''}
+      `;
+      layer.bindPopup(popupContent);
+    }
+  }
+});
+
+// Load GeoJSONs (using correct RAW links!)
+Promise.all([
+  fetch('https://raw.githubusercontent.com/two3four/arizona-legislative-voting-map-district10/main/Legislative%20District%2015.geojson')
+  .then(response => {
+    if (!response.ok) throw new Error('Failed to load SenateDistricts.geojson');
+    return response.json();
+  })
+  .then(data => {
+    console.log('Senate Districts loaded');
+    senateDistricts.addData(data).addTo(map);
+  })
+,
+
+  fetch('https://raw.githubusercontent.com/two3four/arizona-legislative-voting-map-district10/main/Voting%20Precincts.geojson')
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to load VotingPrecincts.geojson');
+      return response.json();
+    })
+    .then(data => {
+      console.log('Voting Precincts loaded');
+      votingPrecincts.addData(data).addTo(map);
+    })
+]).catch(error => {
+  console.error('Error loading GeoJSONs:', error);
+});
+
+// Layer Control
+var overlays = {
+  "SRP '26": srpOverlay,
+  "Legislative District": senateDistricts,
+  "Voting Precincts": votingPrecincts
+};
+L.control.layers(null, overlays, { collapsed: false }).addTo(map);
+
+// Opacity Input
+document.addEventListener("DOMContentLoaded", function() {
+  var opacityInput = document.getElementById('opacityInput');
+  opacityInput.value = srpOverlay.options.opacity * 100;
+
+  opacityInput.addEventListener('input', function() {
+    var percent = parseFloat(opacityInput.value);
+    if (!isNaN(percent)) {
+      var newOpacity = Math.max(0, Math.min(100, percent)) / 100;
+      srpOverlay.setOpacity(newOpacity);
+    }
+  });
+});
+
+// Export Map Button
+document.getElementById('exportBtn').addEventListener('click', function() {
+  document.getElementById('opacityControl').style.visibility = 'hidden';
+  document.getElementById('exportControl').style.visibility = 'hidden';
+  var leafletLayersControl = document.querySelector('.leaflet-control-layers');
+  if (leafletLayersControl) leafletLayersControl.style.visibility = 'hidden';
+
+  setTimeout(() => {
+    html2canvas(document.querySelector("#map"), {
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: null
+    }).then(canvas => {
+      document.getElementById('opacityControl').style.visibility = 'visible';
+      document.getElementById('exportControl').style.visibility = 'visible';
+      if (leafletLayersControl) leafletLayersControl.style.visibility = 'visible';
+
+      var link = document.createElement('a');
+      link.download = 'Arizona_Legislative_Voting_Map.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+  }, 500);
+});
+</script>
+
+</body>
+</html>
