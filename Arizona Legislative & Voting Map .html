@@ -91,41 +91,40 @@ var senateDistricts = L.geoJSON(null, {
   }
 });
 
-// Layers: Voting Precincts
+// Layers: Voting Precincts (UPDATED version)
 var votingPrecincts = L.geoJSON(null, {
- style: { color: "#66b3ff", weight: 2, fillOpacity: 0.0 },
+  style: { color: "#66b3ff", weight: 2, fillOpacity: 0.0 },
   onEachFeature: function (feature, layer) {
     if (feature.properties) {
       var popupContent = `
-        <b>Precinct Number:</b> ${feature.properties.pctnum || ''}<br/>
-        <b>Precinct Name:</b> ${feature.properties.precinctna || ''}<br/>
-        <b>County Code:</b> ${feature.properties.cde_county || ''}
+        <b>Precinct Number:</b> ${feature.properties.PctNum || ''}<br/>
+        <b>Precinct Name:</b> ${feature.properties.BdName || ''}<br/>
+        <b>District Full Name:</b> ${feature.properties.DistrictFullName || ''}
       `;
       layer.bindPopup(popupContent);
     }
   }
 });
 
-// Load GeoJSONs (using correct RAW links!)
+// Load GeoJSONs (Senate Districts and new Voting Precincts)
 Promise.all([
   fetch('https://raw.githubusercontent.com/two3four/arizona-legislative-voting-map-district10/main/Legislative%20District%2015.geojson')
-  .then(response => {
-    if (!response.ok) throw new Error('Failed to load SenateDistricts.geojson');
-    return response.json();
-  })
-  .then(data => {
-    console.log('Senate Districts loaded');
-    senateDistricts.addData(data).addTo(map);
-  })
-,
-
-  fetch('https://raw.githubusercontent.com/two3four/arizona-legislative-voting-map-district10/main/Voting%20Precincts.geojson')
     .then(response => {
-      if (!response.ok) throw new Error('Failed to load VotingPrecincts.geojson');
+      if (!response.ok) throw new Error('Failed to load SenateDistricts.geojson');
       return response.json();
     })
     .then(data => {
-      console.log('Voting Precincts loaded');
+      console.log('Senate Districts loaded');
+      senateDistricts.addData(data).addTo(map);
+    }),
+
+  fetch('https://raw.githubusercontent.com/two3four/arizona-legislative-voting-map-district10/main/Maricopa_County_Voting_Precincts_(2022-)_-5644063468020972726.geojson')
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to load new Voting Precincts geojson');
+      return response.json();
+    })
+    .then(data => {
+      console.log('New Voting Precincts loaded');
       votingPrecincts.addData(data).addTo(map);
     })
 ]).catch(error => {
@@ -179,6 +178,7 @@ document.getElementById('exportBtn').addEventListener('click', function() {
   }, 500);
 });
 </script>
+
 
 </body>
 </html>
